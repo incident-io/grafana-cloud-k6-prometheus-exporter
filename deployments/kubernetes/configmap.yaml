@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-exporter-config
+  namespace: monitoring
+  labels:
+    app: k6-exporter
+data:
+  # Alert rules example
+  alerts.yaml: |
+    groups:
+    - name: k6_tests
+      interval: 30s
+      rules:
+      - alert: K6TestFailed
+        expr: increase(k6_test_run_result_total{result="failed"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "K6 test failed"
+          description: "Test {{ $labels.test_name }} (ID: {{ $labels.test_id }}) failed in project {{ $labels.project_id }}"
+      
+      - alert: K6TestRunningLong
+        expr: k6_test_run_duration_seconds{status="running"} > 3600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "K6 test running for too long"
+          description: "Test {{ $labels.test_name }} has been running for more than 1 hour"
+      
+      - alert: K6HighFailureRate
+        expr: |
+          sum by (project_id) (rate(k6_test_run_result_total{result="failed"}[15m]))
+          /
+          sum by (project_id) (rate(k6_test_run_result_total[15m]))
+          > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High K6 test failure rate"
+          description: "Project {{ $labels.project_id }} has a failure rate above 10%"
+      
+      - alert: K6ExporterDown
+        expr: up{job="k6-exporter"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "K6 exporter is down"
+          description: "K6 Prometheus exporter has been down for more than 5 minutes"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: k6-exporter-secret
+  namespace: monitoring
+  labels:
+    app: k6-exporter
+type: Opaque
+stringData:
+  # Replace with your actual K6 API token
+  api-token: "YOUR_K6_API_TOKEN_HERE"
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: k6-exporter
+  namespace: monitoring
+  labels:
+    app: k6-exporter

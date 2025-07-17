@@ -1,0 +1,122 @@
+groups:
+- name: k6_test_alerts
+  interval: 30s
+  rules:
+  # Alert when any test fails
+  - alert: K6TestFailed
+    expr: increase(k6_test_run_result_total{result="failed"}[5m]) > 0
+    for: 1m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "K6 test '{{ $labels.test_name }}' failed"
+      description: "Test {{ $labels.test_name }} (ID: {{ $labels.test_id }}) failed in project {{ $labels.project_id }}"
+      runbook_url: "https://wiki.example.com/k6-test-failures"
+
+  # Alert when test runs longer than expected
+  - alert: K6TestRunningTooLong
+    expr: k6_test_run_duration_seconds{status="running"} > 3600
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "K6 test running for over 1 hour"
+      description: "Test '{{ $labels.test_name }}' in project {{ $labels.project_id }} has been running for {{ $value | humanizeDuration }}"
+
+  # Alert on high failure rate
+  - alert: K6HighTestFailureRate
+    expr: |
+      (
+        sum by (project_id) (increase(k6_test_run_result_total{result="failed"}[1h]))
+        /
+        sum by (project_id) (increase(k6_test_run_result_total[1h]))
+      ) > 0.1
+    for: 5m
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "High K6 test failure rate in project {{ $labels.project_id }}"
+      description: "Project {{ $labels.project_id }} has a {{ $value | humanizePercentage }} failure rate over the last hour"
+
+  # Alert when multiple tests are running concurrently
+  - alert: K6HighConcurrentTests
+    expr: sum(k6_test_run_status{status="running"}) > 10
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "High number of concurrent K6 tests"
+      description: "{{ $value }} K6 tests are currently running concurrently"
+
+  # Alert on high VUH consumption
+  - alert: K6HighVUHConsumption
+    expr: sum by (project_id) (increase(k6_test_run_vuh_consumed[1h])) > 1000
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "High VUH consumption in project {{ $labels.project_id }}"
+      description: "Project {{ $labels.project_id }} has consumed {{ $value }} VUH in the last hour"
+
+  # Alert when test is stuck in initializing
+  - alert: K6TestStuckInitializing
+    expr: k6_test_run_duration_seconds{status="initializing"} > 300
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "K6 test stuck in initializing state"
+      description: "Test '{{ $labels.test_name }}' has been initializing for {{ $value | humanizeDuration }}"
+
+- name: k6_exporter_alerts
+  interval: 30s
+  rules:
+  # Alert when exporter is down
+  - alert: K6ExporterDown
+    expr: up{job="k6-exporter"} == 0
+    for: 5m
+    labels:
+      severity: critical
+      team: platform
+    annotations:
+      summary: "K6 Prometheus exporter is down"
+      description: "K6 exporter instance {{ $labels.instance }} has been down for more than 5 minutes"
+
+  # Alert on API errors
+  - alert: K6ExporterAPIErrors
+    expr: rate(k6_exporter_api_requests_total{status_code!~"2.."}[5m]) > 0.1
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "K6 exporter experiencing API errors"
+      description: "K6 API endpoint {{ $labels.endpoint }} is returning {{ $labels.status_code }} errors"
+
+  # Alert on slow API responses
+  - alert: K6ExporterSlowAPI
+    expr: histogram_quantile(0.95, rate(k6_exporter_api_request_duration_seconds_bucket[5m])) > 10
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "K6 API responses are slow"
+      description: "95th percentile API response time for {{ $labels.endpoint }} is {{ $value | humanizeDuration }}"
+
+  # Alert on scrape errors
+  - alert: K6ExporterScrapeErrors
+    expr: rate(k6_exporter_scrape_errors_total[5m]) > 0.01
+    for: 5m
+    labels:
+      severity: warning
+      team: platform
+    annotations:
+      summary: "K6 exporter experiencing scrape errors"
+      description: "K6 exporter is experiencing {{ $value | humanize }} errors per second of type {{ $labels.error_type }}"

@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: k6-exporter
+  namespace: monitoring
+  labels:
+    app: k6-exporter
+    prometheus: kube-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: k6-exporter
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+    scheme: http
+    scrapeTimeout: 10s

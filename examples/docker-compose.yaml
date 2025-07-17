@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  k6-exporter:
+    build:
+      context: ..
+      dockerfile: deployments/docker/Dockerfile
+    ports:
+      - "9090:9090"
+    environment:
+      - K6_API_TOKEN=${K6_API_TOKEN}
+      - GRAFANA_STACK_ID=${GRAFANA_STACK_ID}
+      - K6_API_URL=https://api.k6.io
+      - PORT=9090
+      - TEST_CACHE_TTL=60s
+      - STATE_CLEANUP_INTERVAL=5m
+      - ENV=production
+      # Optional: specify projects to monitor
+      # - PROJECTS=project1,project2
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Example Prometheus setup
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    restart: unless-stopped
+    depends_on:
+      - k6-exporter
+
+  # Example Grafana setup
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus-data:
+  grafana-data:

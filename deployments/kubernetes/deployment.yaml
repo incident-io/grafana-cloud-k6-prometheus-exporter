@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k6-exporter
+  namespace: monitoring
+  labels:
+    app: k6-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k6-exporter
+  template:
+    metadata:
+      labels:
+        app: k6-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: k6-exporter
+      containers:
+      - name: k6-exporter
+        image: k6-prometheus-exporter:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: metrics
+          containerPort: 9090
+          protocol: TCP
+        env:
+        - name: K6_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: k6-exporter-secret
+              key: api-token
+        - name: GRAFANA_STACK_ID
+          valueFrom:
+            secretKeyRef:
+              name: k6-exporter-secret
+              key: stack-id
+        - name: K6_API_URL
+          value: "https://api.k6.io"
+        - name: PORT
+          value: "9090"
+        - name: TEST_CACHE_TTL
+          value: "60s"
+        - name: STATE_CLEANUP_INTERVAL
+          value: "5m"
+        - name: ENV
+          value: "production"
+        # Optional: Specify projects to monitor
+        # - name: PROJECTS
+        #   value: "project1,project2"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: metrics
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: metrics
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          readOnlyRootFilesystem: true
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL

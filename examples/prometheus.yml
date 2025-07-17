@@ -1,0 +1,27 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "prometheus-rules/*.yaml"
+
+# Scrape configurations
+scrape_configs:
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape the k6 exporter
+  - job_name: 'k6-exporter'
+    static_configs:
+      - targets: ['k6-exporter:9090']
+    scrape_interval: 15s
+    scrape_timeout: 10s
