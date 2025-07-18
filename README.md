@@ -33,13 +33,13 @@ A Prometheus exporter for Grafana Cloud k6 test runs, enabling monitoring and al
 Configure via environment variables:
 
 ```bash
-K6_API_TOKEN=your-api-token          # Required: Grafana Cloud k6 API token
-GRAFANA_STACK_ID=your-stack-id       # Required: Grafana Cloud Stack ID
-K6_API_URL=https://api.k6.io         # Optional: API base URL (default: https://api.k6.io)
+K6_API_TOKEN=your-api-token           # Required: Grafana Cloud k6 API token
+GRAFANA_STACK_ID=your-stack-id        # Required: Grafana Cloud Stack ID
+PROJECTS=project1,project2            # Required: Comma-separated list of projects to monitor
+K6_API_URL=https://api.k6.io          # Optional: API base URL (default: https://api.k6.io)
 PORT=9090                             # Optional: Exporter port (default: 9090)
 TEST_CACHE_TTL=60s                    # Optional: Test list cache TTL (default: 60s)
 STATE_CLEANUP_INTERVAL=300s           # Optional: State cleanup interval (default: 300s)
-PROJECTS=project1,project2            # Optional: Comma-separated list of projects to monitor
 ```
 
 ## Installation

@@ -11,9 +11,10 @@ import (
 // Config holds the application configuration
 type Config struct {
 	// K6 API configuration
-	K6APIToken      string `envconfig:"K6_API_TOKEN" required:"true"`
-	K6APIURL        string `envconfig:"K6_API_URL" default:"https://api.k6.io"`
-	GrafanaStackID  string `envconfig:"GRAFANA_STACK_ID" required:"true"`
+	K6APIToken     string   `envconfig:"K6_API_TOKEN" required:"true"`
+	K6APIURL       string   `envconfig:"K6_API_URL" default:"https://api.k6.io"`
+	GrafanaStackID string   `envconfig:"GRAFANA_STACK_ID" required:"true"`
+	Projects       []string `envconfig:"PROJECTS" required:"true"` // Comma-separated list of project IDs to monitor
 
 	// Server configuration
 	Port int `envconfig:"PORT" default:"9090"`
@@ -22,9 +23,6 @@ type Config struct {
 	TestCacheTTL         time.Duration `envconfig:"TEST_CACHE_TTL" default:"60s"`
 	StateCleanupInterval time.Duration `envconfig:"STATE_CLEANUP_INTERVAL" default:"5m"`
 	ScrapeInterval       time.Duration `envconfig:"SCRAPE_INTERVAL" default:"15s"`
-
-	// Filtering
-	Projects []string `envconfig:"PROJECTS"` // Comma-separated list of project IDs to monitor
 
 	// Advanced configuration
 	MaxConcurrentRequests int           `envconfig:"MAX_CONCURRENT_REQUESTS" default:"10"`
