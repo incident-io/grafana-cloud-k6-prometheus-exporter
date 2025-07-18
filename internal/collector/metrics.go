@@ -10,7 +10,7 @@ var (
 	testRunTotalDesc = prometheus.NewDesc(
 		"k6_test_run_total",
 		"Total number of test runs by status",
-		[]string{"test_name", "test_id", "project_id", "status", "started_by"},
+		[]string{"test_name", "test_id", "project_id", "status"},
 		nil,
 	)
 
@@ -45,7 +45,7 @@ var (
 	testRunInfoDesc = prometheus.NewDesc(
 		"k6_test_run_info",
 		"Information about test runs",
-		[]string{"test_name", "test_id", "project_id", "started_by", "run_id"},
+		[]string{"test_name", "test_id", "project_id", "run_id"},
 		nil,
 	)
 
@@ -103,12 +103,12 @@ type MetricValue struct {
 
 // OperationalMetrics holds operational metrics for the exporter
 type OperationalMetrics struct {
-	APIRequestsTotal          *prometheus.CounterVec
-	APIRequestDuration        *prometheus.HistogramVec
-	LastScrapeTimestamp       *prometheus.GaugeVec
-	TestRunsTracked           prometheus.Gauge
-	ScrapeDuration            prometheus.Histogram
-	ScrapeErrorsTotal         *prometheus.CounterVec
+	APIRequestsTotal    *prometheus.CounterVec
+	APIRequestDuration  *prometheus.HistogramVec
+	LastScrapeTimestamp *prometheus.GaugeVec
+	TestRunsTracked     prometheus.Gauge
+	ScrapeDuration      prometheus.Histogram
+	ScrapeErrorsTotal   *prometheus.CounterVec
 }
 
 // NewOperationalMetrics creates operational metrics that are registered globally

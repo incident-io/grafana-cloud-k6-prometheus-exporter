@@ -68,7 +68,7 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 // Collect implements prometheus.Collector
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 	start := time.Now()
-	
+
 	// Update operational metrics
 	c.metrics.TestRunsTracked.Set(float64(c.stateManager.GetStateCount()))
 
@@ -106,9 +106,9 @@ func (c *Collector) collectMetrics(ch chan<- prometheus.Metric) error {
 	c.metrics.LastScrapeTimestamp.WithLabelValues("test_runs").SetToCurrentTime()
 
 	// Process test runs
-	statusCounts := make(map[string]map[string]int)      // status -> labels -> count
-	resultCounts := make(map[string]map[string]int)      // result -> labels -> count
-	activeRuns := make(map[string][]*k6client.TestRun)   // status -> runs
+	statusCounts := make(map[string]map[string]int)    // status -> labels -> count
+	resultCounts := make(map[string]map[string]int)    // result -> labels -> count
+	activeRuns := make(map[string][]*k6client.TestRun) // status -> runs
 
 	for _, run := range testRuns {
 		// Get test name from cache or status details
@@ -170,7 +170,6 @@ func (c *Collector) collectMetrics(ch chan<- prometheus.Metric) error {
 			testName,
 			strconv.Itoa(run.TestID),
 			strconv.Itoa(run.ProjectID),
-			run.StartedBy,
 			strconv.Itoa(run.ID),
 		)
 
@@ -245,7 +244,6 @@ func (c *Collector) collectMetrics(ch chan<- prometheus.Metric) error {
 				strconv.Itoa(runState.TestID),
 				strconv.Itoa(runState.ProjectID),
 				status,
-				runState.StartedBy,
 			)
 		}
 

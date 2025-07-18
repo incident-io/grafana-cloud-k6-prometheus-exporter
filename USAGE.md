@@ -55,7 +55,7 @@ docker-compose up -d
 ### Test Run Metrics
 
 - **`k6_test_run_total`** - Counter of test runs by status
-  - Labels: `test_name`, `test_id`, `project_id`, `status`, `started_by`
+  - Labels: `test_name`, `test_id`, `project_id`, `status`
   - Use case: Track how many times tests have entered each status
 
 - **`k6_test_run_status`** - Current test runs in each status (gauge)
