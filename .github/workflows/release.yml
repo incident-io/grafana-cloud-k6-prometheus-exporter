@@ -38,6 +38,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      id-token: write
+      attestations: write
     if: github.ref == 'refs/heads/main'
     steps:
       - name: Checkout
