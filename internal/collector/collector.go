@@ -55,10 +55,8 @@ func NewCollectorWithRegistry(client k6client.ClientInterface, stateManager *sta
 
 // Describe implements prometheus.Collector
 func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
-	// Send all metric descriptors
-	ch <- testRunTotalDesc
+	// Send metric descriptors for active test runs only
 	ch <- testRunStatusDesc
-	ch <- testRunResultTotalDesc
 	ch <- testRunDurationSecondsDesc
 	ch <- testRunVUHConsumedDesc
 	ch <- testRunInfoDesc
@@ -105,12 +103,15 @@ func (c *Collector) collectMetrics(ch chan<- prometheus.Metric) error {
 	// Update last scrape timestamp
 	c.metrics.LastScrapeTimestamp.WithLabelValues("test_runs").SetToCurrentTime()
 
-	// Process test runs
+	// Process test runs - only track active runs
 	statusCounts := make(map[string]map[string]int)    // status -> labels -> count
-	resultCounts := make(map[string]map[string]int)    // result -> labels -> count
 	activeRuns := make(map[string][]*k6client.TestRun) // status -> runs
 
 	for _, run := range testRuns {
+		// Skip completed and aborted test runs
+		if k6client.IsTerminalStatus(run.Status) {
+			continue
+		}
 		// Get test name from cache or status details
 		testName := c.getTestName(run.TestID)
 		if testName == "" {
@@ -153,15 +154,6 @@ func (c *Collector) collectMetrics(ch chan<- prometheus.Metric) error {
 		}
 		activeRuns[run.Status] = append(activeRuns[run.Status], &run)
 
-		// Count results for completed runs
-		if k6client.IsTerminalStatus(run.Status) {
-			result := run.GetResult()
-			if resultCounts[result] == nil {
-				resultCounts[result] = make(map[string]int)
-			}
-			resultCounts[result][labelKey]++
-		}
-
 		// Send info metric
 		ch <- prometheus.MustNewConstMetric(
 			testRunInfoDesc,
@@ -198,18 +190,16 @@ func (c *Collector) collectMetrics(ch chan<- prometheus.Metric) error {
 		}
 	}
 
-	// Send status gauges
-	allStatuses := []string{
+	// Send status gauges - only for active statuses
+	activeStatuses := []string{
 		k6client.StatusCreated,
 		k6client.StatusInitializing,
 		k6client.StatusRunning,
 		k6client.StatusProcessingMetrics,
-		k6client.StatusCompleted,
-		k6client.StatusAborted,
 	}
 
-	// For each possible status, send gauge metrics
-	for _, status := range allStatuses {
+	// For each active status, send gauge metrics
+	for _, status := range activeStatuses {
 		if statusCounts[status] == nil {
 			// No runs in this status, but we still need to send 0 values
 			// for previously seen label combinations
@@ -232,34 +222,8 @@ func (c *Collector) collectMetrics(ch chan<- prometheus.Metric) error {
 		}
 	}
 
-	// Send total counters based on state history
-	for _, runState := range c.stateManager.GetAllStates() {
-		// For each status this run has been in, send a counter
-		for status := range runState.StatusHistory {
-			ch <- prometheus.MustNewConstMetric(
-				testRunTotalDesc,
-				prometheus.CounterValue,
-				1,
-				runState.TestName,
-				strconv.Itoa(runState.TestID),
-				strconv.Itoa(runState.ProjectID),
-				status,
-			)
-		}
-
-		// Send result counter if completed
-		if runState.Result != nil {
-			ch <- prometheus.MustNewConstMetric(
-				testRunResultTotalDesc,
-				prometheus.CounterValue,
-				1,
-				runState.TestName,
-				strconv.Itoa(runState.TestID),
-				strconv.Itoa(runState.ProjectID),
-				*runState.Result,
-			)
-		}
-	}
+	// Clean up completed test runs from state manager
+	c.stateManager.CleanupCompletedRuns()
 
 	return nil
 }

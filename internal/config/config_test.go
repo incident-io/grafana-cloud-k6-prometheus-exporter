@@ -28,6 +28,7 @@ func TestLoadConfig(t *testing.T) {
 			envVars: map[string]string{
 				"K6_API_TOKEN":      "test-token",
 				"GRAFANA_STACK_ID":  "test-stack-id",
+				"PROJECTS":          "100,200",
 			},
 			wantErr: false,
 			verify: func(t *testing.T, cfg *Config) {
@@ -36,6 +37,7 @@ func TestLoadConfig(t *testing.T) {
 				assert.Equal(t, "https://api.k6.io", cfg.K6APIURL)
 				assert.Equal(t, 9090, cfg.Port)
 				assert.Equal(t, 60*time.Second, cfg.TestCacheTTL)
+				assert.Equal(t, []string{"100", "200"}, cfg.Projects)
 			},
 		},
 		{
@@ -43,6 +45,7 @@ func TestLoadConfig(t *testing.T) {
 			envVars: map[string]string{
 				"K6_API_TOKEN":      "",
 				"GRAFANA_STACK_ID":  "test-stack-id",
+				"PROJECTS":          "100",
 			},
 			wantErr: true,
 			errMsg:  "K6_API_TOKEN is required",
@@ -52,6 +55,7 @@ func TestLoadConfig(t *testing.T) {
 			envVars: map[string]string{
 				"K6_API_TOKEN":      "test-token",
 				"GRAFANA_STACK_ID":  "",
+				"PROJECTS":          "100",
 			},
 			wantErr: true,
 			errMsg:  "GRAFANA_STACK_ID is required",
@@ -87,6 +91,7 @@ func TestLoadConfig(t *testing.T) {
 			envVars: map[string]string{
 				"K6_API_TOKEN":      "test-token",
 				"GRAFANA_STACK_ID":  "test-stack-id",
+				"PROJECTS":          "100",
 				"PORT":         "70000",
 			},
 			wantErr: true,
@@ -97,6 +102,7 @@ func TestLoadConfig(t *testing.T) {
 			envVars: map[string]string{
 				"K6_API_TOKEN":      "test-token",
 				"GRAFANA_STACK_ID":  "test-stack-id",
+				"PROJECTS":          "100",
 				"PORT":         "0",
 			},
 			wantErr: true,
@@ -107,6 +113,7 @@ func TestLoadConfig(t *testing.T) {
 			envVars: map[string]string{
 				"K6_API_TOKEN":      "test-token",
 				"GRAFANA_STACK_ID":  "test-stack-id",
+				"PROJECTS":          "100",
 				"K6_API_URL":   "not-a-url",
 			},
 			wantErr: true,
@@ -116,6 +123,8 @@ func TestLoadConfig(t *testing.T) {
 			name: "invalid_test_cache_ttl",
 			envVars: map[string]string{
 				"K6_API_TOKEN":   "test-token",
+				"GRAFANA_STACK_ID":  "test-stack-id",
+				"PROJECTS":          "100",
 				"TEST_CACHE_TTL": "500ms",
 			},
 			wantErr: true,
@@ -125,6 +134,8 @@ func TestLoadConfig(t *testing.T) {
 			name: "invalid_state_cleanup_interval",
 			envVars: map[string]string{
 				"K6_API_TOKEN":            "test-token",
+				"GRAFANA_STACK_ID":  "test-stack-id",
+				"PROJECTS":          "100",
 				"STATE_CLEANUP_INTERVAL":  "30s",
 			},
 			wantErr: true,
@@ -134,6 +145,8 @@ func TestLoadConfig(t *testing.T) {
 			name: "invalid_max_concurrent_requests",
 			envVars: map[string]string{
 				"K6_API_TOKEN":            "test-token",
+				"GRAFANA_STACK_ID":  "test-stack-id",
+				"PROJECTS":          "100",
 				"MAX_CONCURRENT_REQUESTS": "0",
 			},
 			wantErr: true,
@@ -145,7 +158,7 @@ func TestLoadConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear all relevant env vars
 			envVars := []string{
-				"K6_API_TOKEN", "K6_API_URL", "PORT", "TEST_CACHE_TTL",
+				"K6_API_TOKEN", "GRAFANA_STACK_ID", "K6_API_URL", "PORT", "TEST_CACHE_TTL",
 				"STATE_CLEANUP_INTERVAL", "PROJECTS", "MAX_CONCURRENT_REQUESTS",
 				"API_TIMEOUT", "RETRY_ATTEMPTS", "RETRY_DELAY", "SCRAPE_INTERVAL",
 			}

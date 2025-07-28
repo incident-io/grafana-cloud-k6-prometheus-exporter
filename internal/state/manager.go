@@ -77,6 +77,19 @@ func (m *Manager) UpdateTestRun(state *TestRunState) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	// Skip storing completed or aborted runs
+	if state.CurrentStatus == "completed" || state.CurrentStatus == "aborted" {
+		// If we already have this run in state, remove it
+		if _, exists := m.states[state.TestRunID]; exists {
+			delete(m.states, state.TestRunID)
+			m.logger.Debug("removed completed test run from state",
+				zap.Int("run_id", state.TestRunID),
+				zap.String("status", state.CurrentStatus),
+			)
+		}
+		return
+	}
+
 	existing, exists := m.states[state.TestRunID]
 	if !exists {
 		// Initialize status history
@@ -216,4 +229,32 @@ func (m *Manager) GetStatusCounts() map[string]int {
 	}
 
 	return counts
+}
+
+// CleanupCompletedRuns removes all completed and aborted test runs from state
+func (m *Manager) CleanupCompletedRuns() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	removed := 0
+	for runID, state := range m.states {
+		// Remove completed and aborted runs
+		if state.CurrentStatus == "completed" || state.CurrentStatus == "aborted" {
+			delete(m.states, runID)
+			removed++
+			m.logger.Debug("removed completed test run state",
+				zap.Int("run_id", runID),
+				zap.String("status", state.CurrentStatus),
+			)
+		}
+	}
+
+	if removed > 0 {
+		m.logger.Info("cleaned up completed test run states",
+			zap.Int("removed", removed),
+			zap.Int("remaining", len(m.states)),
+		)
+	}
+
+	return removed
 }

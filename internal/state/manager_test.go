@@ -137,7 +137,7 @@ func TestUpdateTestRun(t *testing.T) {
 	assert.Equal(t, 2, len(retrieved.StatusHistory))
 	assert.Equal(t, 0.5, retrieved.VUH)
 
-	// Final update with completion
+	// Final update with completion - should remove the test run from state
 	state3 := &TestRunState{
 		TestRunID:     1,
 		TestID:        100,
@@ -152,15 +152,10 @@ func TestUpdateTestRun(t *testing.T) {
 	}
 	manager.UpdateTestRun(state3)
 
-	// Verify final state
+	// Verify the test run was removed from state (completed runs are not tracked)
 	retrieved = manager.GetTestRunState(1)
-	require.NotNil(t, retrieved)
-	assert.Equal(t, "completed", retrieved.CurrentStatus)
-	assert.NotNil(t, retrieved.Ended)
-	assert.NotNil(t, retrieved.Result)
-	assert.Equal(t, "passed", *retrieved.Result)
-	assert.Equal(t, 1.5, retrieved.VUH)
-	assert.Equal(t, 3, len(retrieved.StatusHistory))
+	assert.Nil(t, retrieved, "Completed test runs should be removed from state")
+	assert.Equal(t, 0, manager.GetStateCount(), "Manager should have no states after completing the only test run")
 }
 
 func TestGetAllStates(t *testing.T) {
@@ -202,21 +197,8 @@ func TestCleanup(t *testing.T) {
 	oldTime := now.Add(-25 * time.Hour)
 	recentTime := now.Add(-1 * time.Hour)
 
-	// Add old completed test run
-	state1 := &TestRunState{
-		TestRunID:     1,
-		TestID:        101,
-		ProjectID:     1000,
-		CurrentStatus: "completed",
-		Created:       oldTime,
-		Ended:         &oldTime,
-		LastUpdated:   oldTime,
-	}
-	manager.UpdateTestRun(state1)
-	// Manually set the LastUpdated to old time after UpdateTestRun
-	manager.mu.Lock()
-	manager.states[1].LastUpdated = oldTime
-	manager.mu.Unlock()
+	// Skip adding completed test run as they are rejected now
+	// Completed runs are immediately removed and not stored
 
 	// Add old abandoned test run
 	state2 := &TestRunState{
@@ -244,18 +226,17 @@ func TestCleanup(t *testing.T) {
 	}
 	manager.UpdateTestRun(state3)
 
-	// Before cleanup
-	assert.Equal(t, 3, manager.GetStateCount())
+	// Before cleanup - only active test runs are stored
+	assert.Equal(t, 2, manager.GetStateCount(), "Should have 2 active test runs")
 
 	// Run cleanup
 	removed := manager.Cleanup(24 * time.Hour)
 	
-	// Both old test runs should be removed (1 and 2)
-	assert.Equal(t, 2, removed)
+	// Only the old abandoned test run (2) should be removed
+	assert.Equal(t, 1, removed)
 	assert.Equal(t, 1, manager.GetStateCount())
 
 	// Verify only recent test run remains
-	assert.Nil(t, manager.GetTestRunState(1))
 	assert.Nil(t, manager.GetTestRunState(2))
 	assert.NotNil(t, manager.GetTestRunState(3))
 }
@@ -290,12 +271,50 @@ func TestHasSeenStatus(t *testing.T) {
 	assert.True(t, manager.HasSeenStatus(1, "running"))
 }
 
+func TestCleanupCompletedRuns(t *testing.T) {
+	logger := zaptest.NewLogger(t)
+	manager := NewManager(logger)
+
+	// Add some active test runs
+	for i := 1; i <= 3; i++ {
+		state := &TestRunState{
+			TestRunID:     i,
+			TestID:        100 + i,
+			ProjectID:     1000,
+			CurrentStatus: "running",
+			Created:       time.Now(),
+		}
+		manager.UpdateTestRun(state)
+	}
+
+	// Verify all are tracked
+	assert.Equal(t, 3, manager.GetStateCount())
+
+	// Call CleanupCompletedRuns - should not remove any since all are running
+	removed := manager.CleanupCompletedRuns()
+	assert.Equal(t, 0, removed)
+	assert.Equal(t, 3, manager.GetStateCount())
+
+	// Now try to add completed runs - they should be rejected
+	state := &TestRunState{
+		TestRunID:     4,
+		TestID:        104,
+		ProjectID:     1000,
+		CurrentStatus: "completed",
+		Created:       time.Now(),
+	}
+	manager.UpdateTestRun(state)
+	
+	// Should still have 3 (completed run was rejected)
+	assert.Equal(t, 3, manager.GetStateCount())
+}
+
 func TestGetStatusCounts(t *testing.T) {
 	logger := zaptest.NewLogger(t)
 	manager := NewManager(logger)
 
-	// Add test runs with different statuses
-	statuses := []string{"created", "running", "running", "completed", "running"}
+	// Add test runs with different active statuses only
+	statuses := []string{"created", "running", "running", "initializing", "running"}
 	for i, status := range statuses {
 		state := &TestRunState{
 			TestRunID:     i + 1,
@@ -307,12 +326,13 @@ func TestGetStatusCounts(t *testing.T) {
 		manager.UpdateTestRun(state)
 	}
 
-	// Get status counts
+	// Get status counts - only active states
 	counts := manager.GetStatusCounts()
 	assert.Equal(t, 1, counts["created"])
 	assert.Equal(t, 3, counts["running"])
-	assert.Equal(t, 1, counts["completed"])
-	assert.Equal(t, 0, counts["aborted"]) // Not present
+	assert.Equal(t, 1, counts["initializing"])
+	assert.Equal(t, 0, counts["completed"]) // Completed runs are not tracked
+	assert.Equal(t, 0, counts["aborted"]) // Aborted runs are not tracked
 }
 
 func TestConcurrentAccess(t *testing.T) {
