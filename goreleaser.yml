@@ -1,0 +1,11 @@
+project_name: grafana-cloud-k6-prometheus-exporter
+
+builds:
+  - binary: grafana-cloud-k6-prometheus-exporter
+    main: main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
