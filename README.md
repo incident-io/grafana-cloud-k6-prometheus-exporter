@@ -5,7 +5,7 @@ A Prometheus exporter for Grafana Cloud k6 test runs, enabling monitoring and al
 ## Features
 
 - Exports k6 test run metrics to Prometheus format
-- Tracks test run status transitions and results
+- Tracks active test runs only (not completed or aborted tests)
 - Prevents duplicate counting with state management
 - Provides operational metrics for monitoring the exporter itself
 - Supports filtering by project
@@ -14,12 +14,10 @@ A Prometheus exporter for Grafana Cloud k6 test runs, enabling monitoring and al
 
 ### Test Run Metrics
 
-- `k6_test_run_total` - Counter of test runs by status
-- `k6_test_run_status` - Gauge showing current test runs in each status
-- `k6_test_run_result_total` - Counter for completed test runs by result
-- `k6_test_run_duration_seconds` - Gauge for test duration
-- `k6_test_run_vuh_consumed` - Gauge for Virtual User Hours consumed
-- `k6_test_run_info` - Info metric with test metadata
+- `k6_test_run_status` - Gauge showing current active test runs in each status (created, initializing, running, processing_metrics)
+- `k6_test_run_duration_seconds` - Gauge for test duration of active test runs
+- `k6_test_run_vuh_consumed` - Gauge for Virtual User Hours consumed by active test runs
+- `k6_test_run_info` - Info metric with metadata for active test runs
 
 ### Operational Metrics
 
@@ -90,15 +88,17 @@ kubectl apply -f deployments/kubernetes/
 # Currently running tests
 sum(k6_test_run_status{status="running"})
 
-# Test failure rate by project (last hour)
-sum by (project_id) (
-  increase(k6_test_run_result_total{result="failed"}[1h])
-) / sum by (project_id) (
-  increase(k6_test_run_result_total[1h])
-)
+# Tests in initialization phase
+sum(k6_test_run_status{status="initializing"})
 
-# Average test duration
-avg(k6_test_run_duration_seconds{status="completed"})
+# All active tests by status
+sum by (status) (k6_test_run_status)
+
+# Average duration of running tests
+avg(k6_test_run_duration_seconds{status="running"})
+
+# VUH consumption by active tests
+sum by (test_name) (k6_test_run_vuh_consumed)
 ```
 
 ## Development
